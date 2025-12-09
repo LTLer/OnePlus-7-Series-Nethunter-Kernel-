@@ -1,66 +1,115 @@
-name: Build Nethunter Kernel YAAP16
+name: Build Nethunter Kernel YAAP16 v5
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build_kernel:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     env:
-      KERNEL_NAME: Op7Series_KSU_Nethunter
-      KERNEL_REPO: https://github.com/yaap/kernel_oneplus_sm8150
-      KERNEL_BRANCH: sixteen
-      KERNEL_DEVICE: OnePlus7Series
-      KERNEL_DEFCONFIG_PATH: gulch_defconfig
-      OUT_DIR: ${{ github.workspace }}/out
-      CCACHE_DIR: ${{ github.workspace }}/ccache
-      ENABLE_KERNELSU: true
-      ENABLE_LXC: true
+      KERNEL_NAME: OnePlus7-Kernel
+      CLANG_VERSION: 16.0.8
+      CLANG_URL: https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.8/clang+llvm-16.0.8-x86_64-linux-gnu-ubuntu-22.04.tar.xz
       ARCH: arm64
-      CROSS_COMPILE: aarch64-linux-android-
-      CROSS_COMPILE_ARM32: arm-linux-androideabi-
+      CROSS_COMPILE: aarch64-linux-gnu-
+      ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3.git
 
     steps:
-      - name: Checkout Source
-        uses: actions/checkout@v4
+    # 1. Checkout 仓库
+    - name: Checkout Repository
+      uses: actions/checkout@v3
 
-      - name: Install Dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y bc bison build-essential ccache curl flex \
-            libncurses5-dev libncursesw5-dev libssl-dev libelf-dev lzop \
-            python3 python3-pip python3-setuptools python3-dev python3-venv python3-distutils-extra \
-            pkg-config unzip zip wget git rsync
+    # 2. 设置缓存 (ccache)
+    - name: Setup CCache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/kernel/**') }}
+        restore-keys: |
+          ${{ runner.os }}-ccache-
 
-      - name: Setup Clang
-        run: |
-          mkdir -p clang
-          cd clang
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.7/clang+llvm-16.0.7-x86_64-linux-gnu-ubuntu-22.04.tar.xz
-          tar -xf clang+llvm-16.0.7-x86_64-linux-gnu-ubuntu-22.04.tar.xz --strip-components=1
-          cd ..
-          export PATH="$PWD/clang/bin:$PATH"
+    # 3. 更新系统、安装依赖
+    - name: Install Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          bc build-essential flex bison libncurses5-dev libncursesw5-dev \
+          python3 python3-pip python3-venv python3-distutils \
+          git wget curl unzip cpio rsync lzop libssl-dev device-tree-compiler zip
 
-      - name: Kernel Configuration
-        run: |
-          mkdir -p $OUT_DIR
-          make -j$(nproc) O=$OUT_DIR ARCH=$ARCH $KERNEL_DEFCONFIG_PATH
+    # 4. 下载并设置 Clang
+    - name: Setup Clang
+      run: |
+        mkdir -p clang
+        cd clang
+        wget $CLANG_URL
+        tar -xf clang+llvm-${CLANG_VERSION}-x86_64-linux-gnu-ubuntu-22.04.tar.xz --strip-components=1
+        cd ..
+        echo "export PATH=$(pwd)/clang/bin:$PATH" >> $GITHUB_ENV
 
-      - name: Build Kernel
-        run: |
-          make -j$(nproc) O=$OUT_DIR ARCH=$ARCH \
-            CC="ccache clang" \
-            CROSS_COMPILE=$CROSS_COMPILE \
-            CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32 \
-            KERNELSU=$ENABLE_KERNELSU \
-            LXC=$ENABLE_LXC
+    # 5. 显示编译工具链信息
+    - name: Show Compiler Info
+      run: |
+        clang --version
+        gcc --version
 
-      - name: Upload Kernel Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nethunter-kernel-${{ github.run_number }}
-          path: $OUT_DIR
+    # 6. 准备 Kernel 配置 (加入 LXC/Kernelsu 支持)
+    - name: Prepare Kernel Config
+      run: |
+        make O=out defconfig
+        cd out
+        scripts/config --file .config \
+          --enable CONFIG_NAMESPACES \
+          --enable CONFIG_NET_NS \
+          --enable CONFIG_PID_NS \
+          --enable CONFIG_USER_NS \
+          --enable CONFIG_CGROUPS \
+          --enable CONFIG_KEYS \
+          --enable CONFIG_KERNFS \
+          --enable CONFIG_SYSFS \
+          --enable CONFIG_PROC_FS \
+          --enable CONFIG_TMPFS \
+          --enable CONFIG_VFAT_FS \
+          --enable CONFIG_EXT4_FS \
+          --enable CONFIG_KERNFS \
+          --enable CONFIG_DEBUG_FS \
+          --enable CONFIG_SECURITY \
+          --enable CONFIG_SECURITY_SELINUX \
+          --enable CONFIG_SECURITY_YAMA
+        make O=out olddefconfig
+
+    # 7. 编译 Kernel
+    - name: Build Kernel
+      run: |
+        export PATH=$(pwd)/clang/bin:$PATH
+        make -j$(nproc) O=out
+
+    # 8. 下载 AnyKernel3 仓库
+    - name: Clone AnyKernel3
+      run: |
+        git clone $ANYKERNEL_REPO AnyKernel3
+
+    # 9. 拷贝内核和 dtb/dtbo 到 AnyKernel3
+    - name: Prepare AnyKernel3
+      run: |
+        cp out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+        cp out/arch/arm64/boot/dts/vendor/qcom/*.dtb AnyKernel3/dtb/
+        cp out/arch/arm64/boot/dts/vendor/qcom/*.dtbo AnyKernel3/dtb/
+
+    # 10. 构建 flashable zip
+    - name: Build Flashable Zip
+      run: |
+        cd AnyKernel3
+        zip -r ../${KERNEL_NAME}-YAAP16-AnyKernel3.zip * -x "*.git*" "*.md"
+
+    # 11. 上传最终 zip
+    - name: Upload Kernel Zip
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${KERNEL_NAME}-YAAP16-AnyKernel3
+        path: ${KERNEL_NAME}-YAAP16-AnyKernel3.zip
