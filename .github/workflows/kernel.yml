@@ -114,10 +114,6 @@ jobs:
           echo "HASH=$(echo -n '${{ toJSON(matrix.config) }}' | openssl dgst -sha1 | awk '{print $2}')" >> $GITHUB_OUTPUT
 
       - name: 🚅 Cache ccache & output
-      env:
-  ARCH: arm64
-  CROSS_COMPILE: aarch64-linux-gnu-
-  CROSS_COMPILE_ARM32: arm-linux-gnueabi-
         env:
           HASH: ${{ steps.hash.outputs.HASH }}
         if: ${{ env.ENABLE_CCACHE == 'true' }}
