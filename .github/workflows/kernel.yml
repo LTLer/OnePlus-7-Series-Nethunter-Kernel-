@@ -1,100 +1,107 @@
-name: Build kernels
+name: Build Nethunter Kernel YAAP16
 
+# 触发条件
 on:
   push:
-    branches:
-      - sixteen   # yaap16 分支
+    branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Kernel (Op7Series_KSU_Nethunter + LXC)
-    runs-on: ubuntu-latest
+  build_kernel:
+    runs-on: ubuntu-24.04
     env:
-      BUILD_DATE: ${{ github.run_id }}
-      KERNEL_NAME: Op7Series_KSU_Nethunter
-      KERNEL_REPO: https://github.com/yaap/kernel_oneplus_sm8150
-      KERNEL_BRANCH: sixteen
-      KERNEL_DEVICE: Oneplus7Series
-      KERNEL_DEFCONFIG_PATH: gulch_defconfig
-      ENABLE_CCACHE: true
-      USE_ANYKERNEL3: true
-      ENABLE_KERNELSU: true
-      ENABLE_LXC: true
-      OUT_DIR: ${{ github.workspace }}/out
-      CCACHE_DIR: ${{ github.workspace }}/ccache
       ARCH: arm64
-      CROSS_COMPILE: aarch64-linux-gnu-
+      KERNEL_DEFCONFIG: gulch_defconfig
+      OUT_DIR: out
+      CROSS_COMPILE: aarch64-linux-android-
       CROSS_COMPILE_ARM32: arm-linux-androideabi-
+      CC: clang
+      USE_CCACHE: 1
+      ANYKERNEL_REPO: https://github.com/osm0sis/AnyKernel3.git
+      ANYKERNEL_DIR: AnyKernel3
+      BUILD_USER: dammer
+      BUILD_HOST: github-runner
 
     steps:
-      - name: Checkout Source
+      # 1️⃣ Checkout 源码
+      - name: Checkout kernel source
         uses: actions/checkout@v3
+
+      # 2️⃣ 安装依赖
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y git build-essential bc ccache libncurses-dev \
+          flex bison libssl-dev wget libelf-dev python3 python3-distutils \
+          python3-pip curl unzip clang lld gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi zip
+
+      # 3️⃣ 缓存 ccache
+      - name: Cache ccache
+        uses: actions/cache@v3
         with:
-          submodules: true
+          path: ${{ github.workspace }}/ccache
+          key: ccache-${{ runner.os }}-${{ hashFiles('**/*.c') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
 
-      - name: Install Dependencies
+      # 4️⃣ 下载并缓存 Clang 编译器
+      - name: Setup Clang
+        uses: actions/cache@v3
+        with:
+          path: clang
+          key: clang-16-llvm-r522817
+          restore-keys: clang-16-llvm-
+      - name: Install Clang
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            bc bison build-essential curl flex git wget ccache lftp \
-            libssl-dev libelf-dev libncurses5-dev libncursesw5-dev \
-            lib32z1 lib32ncurses6 lib32gcc-13-dev gcc-13-multilib \
-            clang lld libglvnd-dev xsltproc
+          mkdir -p clang
+          curl -LO https://github.com/llvm/llvm-project/releases/download/clang-r522817/clang+llvm-16.0.7-x86_64-linux-gnu-ubuntu-24.04.tar.xz
+          tar -xf clang+llvm-16.0.7-x86_64-linux-gnu-ubuntu-24.04.tar.xz -C clang --strip-components=1
+          echo "$PWD/clang/bin" >> $GITHUB_PATH
 
-      - name: Setup ccache
+      # 5️⃣ 配置 defconfig
+      - name: Configure Kernel
         run: |
-          if [ "${{ env.ENABLE_CCACHE }}" = "true" ]; then
-            export PATH="${{ env.CCACHE_DIR }}/bin:$PATH"
-            ccache -M 10G
-          fi
+          make O=$OUT_DIR $KERNEL_DEFCONFIG
 
-      - name: Print PATH
-        run: echo "🤔 PATH Variable: $PATH"
-
-      - name: Kernel Configuration
-        run: |
-          echo "🔧 Applying kernel defconfig: $KERNEL_DEFCONFIG_PATH"
-          make -j$(nproc) O=${{ env.OUT_DIR }} ARCH=${{ env.ARCH }} \
-            CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=${{ env.CROSS_COMPILE }} \
-            CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }} \
-            ${KERNEL_DEFCONFIG_PATH}
-
+      # 6️⃣ 编译内核（启用 KernelSU + LXC 支持）
       - name: Build Kernel
         run: |
-          echo "🚀 Starting kernel build..."
-          set -o pipefail
-          make -j$(nproc) O=${{ env.OUT_DIR }} ARCH=${{ env.ARCH }} \
-            CC="ccache clang" CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=${{ env.CROSS_COMPILE }} \
-            CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }} \
-            LD=ld.lld AR=llvm-ar NM=llvm-nm \
-            OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump \
-            READELF=llvm-readelf OBJSIZE=llvm-size \
-            STRIP=llvm-strip LDGOLD=aarch64-linux-gnu-ld.gold \
-            LLVM_AR=llvm-ar LLVM_DIS=llvm-dis CONFIG_THINLTO=y \
-            2>&1 | tee build.log
+          make -j$(nproc) O=$OUT_DIR \
+            CC=$CC \
+            CROSS_COMPILE=$CROSS_COMPILE \
+            CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM32 \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            READELF=llvm-readelf \
+            OBJSIZE=llvm-size \
+            STRIP=llvm-strip \
+            KBUILD_BUILD_USER=$BUILD_USER \
+            KBUILD_BUILD_HOST=$BUILD_HOST \
+            CONFIG_THINLTO=y
 
-      - name: Verify KernelSU & LXC
+      # 7️⃣ 设置 AnyKernel3 并打包刷机 ZIP
+      - name: Setup AnyKernel3
         run: |
-          echo "🔍 Checking KernelSU and LXC modules..."
-          grep -q "CONFIG_KERN_SU=y" ${{ env.OUT_DIR }}/.config && echo "✅ KernelSU enabled" || echo "❌ KernelSU NOT enabled"
-          grep -q "CONFIG_LXC=y" ${{ env.OUT_DIR }}/.config && echo "✅ LXC enabled" || echo "❌ LXC NOT enabled"
+          git clone $ANYKERNEL_REPO $ANYKERNEL_DIR
+          cp $OUT_DIR/arch/arm64/boot/Image.gz-dtb $ANYKERNEL_DIR
+          cd $ANYKERNEL_DIR
+          zip -r ../KernelYAAP16-SU-LXC-$(date +%Y%m%d).zip ./*
 
-      - name: Save Build Artifacts
-        if: always()
-        run: |
-          echo "💾 Saving .config and modules for debugging"
-          cp ${{ env.OUT_DIR }}/.config ${{ github.workspace }}/kernel-config-${{ github.run_id }}.txt
-          tar -czf kernel-modules-${{ github.run_id }}.tar.gz -C ${{ env.OUT_DIR }} modules
+      # 8️⃣ 上传刷机包为 artifact
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: KernelYAAP16-SU-LXC
+          path: KernelYAAP16-SU-LXC-*.zip
 
-      - name: Build AnyKernel3 Package
-        if: env.USE_ANYKERNEL3 == 'true'
-        run: |
-          echo "📦 Building AnyKernel3 zip..."
-          cd AnyKernel3
-          zip -r ../${{ env.KERNEL_NAME }}-${{ github.run_id }}.zip . -x '*.git*'
-
-      - name: Show Build Output
-        run: tree -L 2 ${{ env.OUT_DIR }}
+      # 9️⃣ 发布到 GitHub Release
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v$(date +%Y%m%d)-su-lxc
+          name: Kernel YAAP16 SU+LXC $(date +%Y%m%d)
+          files: KernelYAAP16-SU-LXC-*.zip
