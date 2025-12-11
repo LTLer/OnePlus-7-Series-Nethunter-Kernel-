@@ -9,14 +9,14 @@
     },
     "toolchains": [
   {
-    "repo": "https://github.com/android/llvm-build-configs/releases/download/clang-r547379/clang-r547379.tar.gz",
+    "repo": "https://github.com/JeyKul/clang-r547379/releases/download/clang/linux-x86-refs_heads_main-clang-r547379.tar.gz",
     "name": "clang",
     "extract": true,
     "binaryEnv": [
       "clang-r547379/bin"
     ]
   }
-],
+]，
     "enableCcache": true,
     "params": {
       "ARCH": "arm64",
