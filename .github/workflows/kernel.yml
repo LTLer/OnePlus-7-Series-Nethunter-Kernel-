@@ -27,7 +27,11 @@ jobs:
           CONFIGS="[]"
 
           for f in Kernel/configs/*.config.json; do
-            # 尝试解析，如果失败就忽略
+            if [ ! -f "$f" ]; then
+              echo "⚠️ File $f not found, skipping"
+              continue
+            fi
+
             if jq empty "$f" 2>/dev/null; then
               FILE_CONTENT=$(jq '.' "$f")
               CONFIGS=$(echo "$CONFIGS" | jq ". + [$FILE_CONTENT]")
@@ -36,7 +40,12 @@ jobs:
             fi
           done
 
-          # 写入 GitHub 输出
+          # 如果 CONFIGS 仍为空，给一个默认值，避免 matrix 报错
+          if [ "$(echo $CONFIGS | jq 'length')" -eq 0 ]; then
+            echo "⚠️ No valid config found, adding dummy config"
+            CONFIGS='[{"kernelSource":{"name":"dummy","repo":"","branch":"","device":"","defconfig":""},"enableCcache":false,"AnyKernel3":{"use":false,"release":false},"enableKernelSU":false,"enableLXC":false,"toolchains":[],"params":{"ARCH":"arm64","CC":"clang"}}]'
+          fi
+
           echo "CONFIGS<<EOF" >> $GITHUB_OUTPUT
           echo "$CONFIGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
