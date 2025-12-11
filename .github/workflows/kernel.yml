@@ -24,9 +24,11 @@ jobs:
       - name: 😆 Generate Matrix
         id: generate-matrix
         run: |
-          echo "CONFIGS<<EOF" >> $GITHUB_OUTPUT
-          jq -s '[.[][]]' Kernel/configs/*.config.json >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+       
+              CONFIG_JSON=$(jq -s '[.[][]]' Kernel/configs/*.config.json)
+               echo "CONFIGS<<EOF" >> $GITHUB_OUTPUT
+               echo "$CONFIG_JSON" >> $GITHUB_OUTPUT
+               echo "EOF" >> $GITHUB_OUTPUT
 
       # Set compile time.
       - name: ⏰ Set builddate
