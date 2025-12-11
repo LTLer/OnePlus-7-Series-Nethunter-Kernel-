@@ -15,19 +15,22 @@ jobs:
     outputs:
       CONFIGS: ${{ steps.generate-matrix.outputs.CONFIGS }}
       BUILD_DATE: ${{ steps.generate-builddate.outputs.BUILDDATE }}
+
     steps:
-      # This action checks-out your CONFIGSitory under $GITHUB_WORKSPACE, so your workflow can access it.
       - name: 😄 Checkout
         uses: actions/checkout@v4
 
-      # Match the configuration files in the CONFIGS directory, read the contents and merge them into an array.
       - name: 😆 Generate Matrix
         id: generate-matrix
         run: |
           JSON=$(jq -sc '[.[][]]' Kernel/configs/*.config.json)
-           echo "CONFIGS=$JSON" >> $GITHUB_OUTPUT
 
-      # Set compile time.
+          {
+            echo "CONFIGS<<EOF"
+            echo "$JSON"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: ⏰ Set builddate
         id: generate-builddate
         run: echo "BUILDDATE=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
