@@ -3,20 +3,20 @@
     "kernelSource": {
       "name": "Op7Series_KSU_Nethunter",
       "repo": "https://github.com/yaap/kernel_oneplus_sm8150",
-      "branch": "sixteen",
+      "branch": "fourteen",
       "device": "Oneplus7Series",
       "defconfig": "gulch_defconfig"
     },
- "toolchains": [
-  {
-    "name": "clang",
-    "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz",
-    "extract": true,
-    "binaryEnv": [
-      "clang-r536225/bin"
-    ]
-  }
-]，
+    "toolchains": [
+      {
+        "repo": "https://gitlab.com/internetuser111/prebuilts_clang_host_linux-x86",
+        "branch": "fourteen",
+        "name": "clang",
+        "binaryEnv": [
+          "clang-r522817/bin"
+        ]
+      }
+    ],
     "enableCcache": true,
     "params": {
       "ARCH": "arm64",
@@ -36,29 +36,28 @@
         "LDGOLD": "aarch64-linux-gnu-ld.gold",
         "LLVM_AR": "llvm-ar",
         "LLVM_DIS": "llvm-dis",
-        "CONFIG_THINLTO": "n"
+        "CONFIG_THINLTO": "y"
       }
     },
     "AnyKernel3": {
-      "use": true,
-      "release": true,
-      "custom": {
-        "repo": "https://github.com/internetuser111/AnyKernel3",
-        "branch": "op7-nh"
-      }
-    },
-    "enableKernelSU": true,
-    "enableLXC": true
-  }
+        "use": true,
+        "release": true,
+        "custom": {
+          "repo": "https://github.com/internetuser111/AnyKernel3",
+          "branch": "op7-nh"
+        }
+      },
+      "enableKernelSU": true,
+      "enableLXC": true
+    }
 ]
-
 
 [
   {
     "kernelSource": {
       "name": "Op7Series_Nethunter",
       "repo": "https://github.com/yaap/kernel_oneplus_sm8150",
-      "branch": "sixteen",
+      "branch": "fourteen",
       "device": "Oneplus7Series",
       "defconfig": "gulch_defconfig"
     },
