@@ -8,15 +8,15 @@
       "defconfig": "gulch_defconfig"
     },
     "toolchains": [
-      {
-   "repo": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86",
-      "branch": "main",
-      "name": "clang",
-      "binaryEnv": [
-        "clang-r547379/bin"
-  ]
-      }
-    ],
+  {
+    "repo": "https://github.com/android/llvm-build-configs/releases/download/clang-r547379/clang-r547379.tar.gz",
+    "name": "clang",
+    "extract": true,
+    "binaryEnv": [
+      "clang-r547379/bin"
+    ]
+  }
+],
     "enableCcache": true,
     "params": {
       "ARCH": "arm64",
