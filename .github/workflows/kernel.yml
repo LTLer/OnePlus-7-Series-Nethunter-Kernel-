@@ -24,11 +24,22 @@ jobs:
       - name: 😆 Generate Matrix
         id: generate-matrix
         run: |
-       
-              CONFIG_JSON=$(jq -s '[.[][]]' Kernel/configs/*.config.json)
-               echo "CONFIGS<<EOF" >> $GITHUB_OUTPUT
-               echo "$CONFIG_JSON" >> $GITHUB_OUTPUT
-               echo "EOF" >> $GITHUB_OUTPUT
+          CONFIGS="[]"
+
+          for f in Kernel/configs/*.config.json; do
+            # 尝试解析，如果失败就忽略
+            if jq empty "$f" 2>/dev/null; then
+              FILE_CONTENT=$(jq '.' "$f")
+              CONFIGS=$(echo "$CONFIGS" | jq ". + [$FILE_CONTENT]")
+            else
+              echo "⚠️ Invalid JSON, skipping $f"
+            fi
+          done
+
+          # 写入 GitHub 输出
+          echo "CONFIGS<<EOF" >> $GITHUB_OUTPUT
+          echo "$CONFIGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       # Set compile time.
       - name: ⏰ Set builddate
