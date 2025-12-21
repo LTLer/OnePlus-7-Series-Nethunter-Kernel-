@@ -25,7 +25,7 @@
   "CC": "clang",
   "CROSS_COMPILE": "aarch64-linux-android-",
   "CROSS_COMPILE_ARM32": "arm-linux-androideabi-",
-  "LD": "ld.lld",
+"LD": "/home/runner/work/OnePlus-7-yaap-kernal-test/OnePlus-7-yaap-kernal-test/clang/clang-r536225/bin/ld.lld"，
   "AR": "llvm-ar",
   "NM": "llvm-nm",
   "OBJCOPY": "llvm-objcopy",
