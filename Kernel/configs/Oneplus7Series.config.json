@@ -7,48 +7,59 @@
       "device": "Oneplus7Series",
       "defconfig": "gulch_defconfig"
     },
-   "toolchains": [
-  {
-    "name": "clang",
-    "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-security-16.0.0_r3/clang-r536225.tar.gz",
-    "extract": true,
-    "binaryEnv": [
-      "clang-r536225/bin"
-    ]
-  }
-],
+    "toolchains": [
+      {
+        "name": "clang",
+        "url": "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/tags/android-security-16.0.0_r3/clang-r536225.tar.gz",
+        "extract": true,
+        "binaryEnv": [
+          "clang-r536225/bin"
+        ]
+      }
+    ],
     "enableCcache": true,
     "params": {
       "ARCH": "arm64",
       "CC": "clang",
       "externalCommands": {
-    "CC": "${{ github.workspace }}/clang/clang-r536225/bin/clang",
-    "CROSS_COMPILE": "aarch64-linux-android-",
-    "CROSS_COMPILE_ARM32": "arm-linux-androideabi-",
-    "LD": "${{ github.workspace }}/clang/clang-r536225/bin/ld.lld",
-    "AR": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-ar",
-    "NM": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-nm",
-    "OBJCOPY": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-objcopy",
-    "OBJDUMP": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-objdump",
-    "READELF": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-readelf",
-    "OBJSIZE": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-size",
-    "STRIP": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-strip",
-    "LDGOLD": "aarch64-linux-gnu-ld.gold",
-    "LLVM_AR": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-ar",
-    "LLVM_DIS": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-dis",
-    "CONFIG_LTO_CLANG": "y",
-    "CONFIG_THINLTO": "y"
-}
+        "CC": "${{ github.workspace }}/clang/clang-r536225/bin/clang",
+        "CROSS_COMPILE": "aarch64-linux-android-",
+        "CROSS_COMPILE_ARM32": "arm-linux-androideabi-",
+        "LD": "${{ github.workspace }}/clang/clang-r536225/bin/ld.lld",
+        "AR": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-ar",
+        "NM": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-nm",
+        "OBJCOPY": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-objcopy",
+        "OBJDUMP": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-objdump",
+        "READELF": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-readelf",
+        "OBJSIZE": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-size",
+        "STRIP": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-strip",
+        "LDGOLD": "aarch64-linux-gnu-ld.gold",
+        "LLVM_AR": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-ar",
+        "LLVM_DIS": "${{ github.workspace }}/clang/clang-r536225/bin/llvm-dis",
+        "CONFIG_LTO_CLANG": "y",
+        "CONFIG_THINLTO": "y"
+      },
+      "preBuild": [
+        "export PATH=${{ github.workspace }}/clang/clang-r536225/bin:$PATH",
+        "export CC=${{ github.workspace }}/clang/clang-r536225/bin/clang",
+        "export LD=${{ github.workspace }}/clang/clang-r536225/bin/ld.lld",
+        "export AR=${{ github.workspace }}/clang/clang-r536225/bin/llvm-ar",
+        "export NM=${{ github.workspace }}/clang/clang-r536225/bin/llvm-nm",
+        "export OBJCOPY=${{ github.workspace }}/clang/clang-r536225/bin/llvm-objcopy",
+        "export OBJDUMP=${{ github.workspace }}/clang/clang-r536225/bin/llvm-objdump",
+        "export READELF=${{ github.workspace }}/clang/clang-r536225/bin/llvm-readelf",
+        "export STRIP=${{ github.workspace }}/clang/clang-r536225/bin/llvm-strip"
+      ]
     },
     "AnyKernel3": {
-        "use": true,
-        "release": true,
-        "custom": {
-          "repo": "https://github.com/internetuser111/AnyKernel3",
-          "branch": "op7-nh"
-        }
-      },
-      "enableKernelSU": true,
-      "enableLXC": true
-    }
+      "use": true,
+      "release": true,
+      "custom": {
+        "repo": "https://github.com/internetuser111/AnyKernel3",
+        "branch": "op7-nh"
+      }
+    },
+    "enableKernelSU": true,
+    "enableLXC": true
+  }
 ]
