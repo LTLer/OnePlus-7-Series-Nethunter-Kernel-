@@ -211,12 +211,22 @@ jobs:
         run: |
            echo "🤔 Original PATH: $PATH"
 
-           # 1️⃣ Fix Clang PATH
-           # 避免重复路径，确保 ld.lld, llvm-ar, clang 等可执行
+           # 1️⃣ Fix Clang/LLVM PATH
+           # 修改这里为你的 clang 预构建目录
+           export PATH="${{ github.workspace }}/clang/clang-r536225/bin:$PATH"
+
+           # 添加每个 toolchain binaryEnv 路径
            for toolchain in $(jq -r '.toolchains[].binaryEnv[]' <<< "${{ toJSON(matrix.CONFIG.toolchains) }}"); do
                export PATH="${{ github.workspace }}/$toolchain:$PATH"
            done
+
+           # 验证工具链
            echo "🤔 Fixed PATH: $PATH"
+           which clang
+           which ld.lld
+           which llvm-ar
+           which llvm-nm
+           which llvm-objcopy
 
            # 2️⃣ Prepare make args
            ARCH=$(echo $PARAMS | jq -r ".ARCH")
@@ -235,7 +245,7 @@ jobs:
                fi
            fi
 
-           # 3️⃣ External commands
+           # 3️⃣ External commands (保持原名，不加路径)
            while read -r externalCommand; do
                key=$(echo "$externalCommand" | cut -d= -f1)
                value=$(echo "$externalCommand" | cut -d= -f2)
@@ -247,7 +257,7 @@ jobs:
                        fi
                        ;;
                    *)
-                       # LD, AR, NM 等保持命令名，不加路径
+                       # LD, AR, NM 等保持命令名
                        ;;
                esac
 
