@@ -74,6 +74,18 @@ jobs:
       OUT_DIR: "${{ github.workspace }}/out"
       CCACHE_DIR: "${{ github.workspace }}/ccache"
     steps:
+    # 🔧 Setup Clang toolchain PATH
+      - name: 🔧 Setup toolchain PATH
+        run: |
+          echo "🤔 Original PATH: $PATH"
+
+          # 替换成你实际 workflow 里的 clang 路径
+          export PATH="${{ github.workspace }}/clang/clang-r536225/bin:$PATH"
+
+          # 验证可执行文件
+          echo "🤔 Updated PATH: $PATH"
+          which clang
+          which ld.lld
       # Set swap space
       - name: 📐 Set swap to 10G
         uses: pierotofy/set-swap-space@master
