@@ -194,40 +194,58 @@ jobs:
       - name: 😎 Set build args
         id: generate-args
         env:
-          PARAMS: "${{ toJSON(matrix.CONFIG.params) }}"
-          THREAD: $(nproc --all)
+            PARAMS: "${{ toJSON(matrix.CONFIG.params) }}"
+            THREAD: $(nproc --all)
         run: |
-          echo "🤔 PATH Variable: $PATH"
+           echo "🤔 Original PATH: $PATH"
 
-          ARCH=$(echo $PARAMS | jq -r ".ARCH")
-          CC=$(echo $PARAMS | jq -r ".CC")
+           # 1️⃣ Fix Clang PATH
+           # 避免重复路径，确保 ld.lld, llvm-ar, clang 等可执行
+           for toolchain in $(jq -r '.toolchains[].binaryEnv[]' <<< "${{ toJSON(matrix.CONFIG.toolchains) }}"); do
+               export PATH="${{ github.workspace }}/$toolchain:$PATH"
+           done
+           echo "🤔 Fixed PATH: $PATH"
 
-          args="-j${{ env.THREAD }} O=${{ env.OUT_DIR }} ARCH=$ARCH"
-          if [ -n "$CC" ]; then
+           # 2️⃣ Prepare make args
+           ARCH=$(echo $PARAMS | jq -r ".ARCH")
+           CC=$(echo $PARAMS | jq -r ".CC")
 
-            if [[ "$CC" == *"/"* ]]; then
-              CC=${{ env.WORKSPACE }}/$CC
-            fi
+           args="-j${THREAD} O=${{ env.OUT_DIR }} ARCH=$ARCH"
 
-            if [ ${{ env.ENABLE_CCACHE }} = true ]; then
-              args="$args CC=\"ccache $CC\""
-            else
-              args="$args CC=$CC"
-            fi
-          fi
-          while read -r externalCommand; do
-            key=$(echo "$externalCommand" | cut -d= -f1)
-            value=$(echo "$externalCommand" | cut -d= -f2)
-            if [[ "$value" == *"/"* ]]; then
-              value="${{ env.WORKSPACE }}/$value"
-            fi
-            args="$args $key=$value"
-          done < <(jq -r '.externalCommands | to_entries[] | "\(.key)=\(.value)"' <<< "$PARAMS")
+           if [ -n "$CC" ]; then
+               if [[ "$CC" == *"/"* ]]; then
+                   CC="${{ github.workspace }}/$CC"
+               fi
+               if [ "${{ env.ENABLE_CCACHE }}" = "true" ]; then
+                   args="$args CC=\"ccache $CC\""
+               else
+                   args="$args CC=$CC"
+               fi
+           fi
 
-          echo "ARCH=$ARCH" >> $GITHUB_OUTPUT
-          echo "ARGS=$args" >> $GITHUB_OUTPUT
+           # 3️⃣ External commands
+           while read -r externalCommand; do
+               key=$(echo "$externalCommand" | cut -d= -f1)
+               value=$(echo "$externalCommand" | cut -d= -f2)
 
-          echo "🤔 $args"
+               case "$key" in
+                   CC|CROSS_COMPILE|CROSS_COMPILE_ARM32)
+                       if [[ "$value" == *"/"* ]]; then
+                           value="${{ github.workspace }}/$value"
+                       fi
+                       ;;
+                   *)
+                       # LD, AR, NM 等保持命令名，不加路径
+                       ;;
+               esac
+
+               args="$args $key=$value"
+           done < <(jq -r '.externalCommands | to_entries[] | "\(.key)=\(.value)"' <<< "$PARAMS")
+
+           # 4️⃣ Export outputs
+           echo "ARCH=$ARCH" >> $GITHUB_OUTPUT
+           echo "ARGS=$args" >> $GITHUB_OUTPUT
+           echo "🤔 Final make args: $args"
 
       - name: 😋 Setup KernelSU
         working-directory: ${{ env.KERNEL_NAME }}
